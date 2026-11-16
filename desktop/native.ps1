@@ -34,6 +34,18 @@ switch ($Action) {
     [DexorInput]::mouse_event([uint32]$mouse[$button][0], 0, 0, 0, [UIntPtr]::Zero)
     [DexorInput]::mouse_event([uint32]$mouse[$button][1], 0, 0, 0, [UIntPtr]::Zero)
   }
+  "MouseDown" {
+    $button = $Value.ToLowerInvariant()
+    if (-not $mouse.ContainsKey($button)) { throw "Unsupported mouse button." }
+    if ($X -ge 0 -and $Y -ge 0) { [void][DexorInput]::SetCursorPos($X, $Y) }
+    [DexorInput]::mouse_event([uint32]$mouse[$button][0], 0, 0, 0, [UIntPtr]::Zero)
+  }
+  "MouseUp" {
+    $button = $Value.ToLowerInvariant()
+    if (-not $mouse.ContainsKey($button)) { throw "Unsupported mouse button." }
+    if ($X -ge 0 -and $Y -ge 0) { [void][DexorInput]::SetCursorPos($X, $Y) }
+    [DexorInput]::mouse_event([uint32]$mouse[$button][1], 0, 0, 0, [UIntPtr]::Zero)
+  }
   "Key" {
     $key = $Value.ToUpperInvariant()
     if ($key -match '^[A-Z0-9]$') { $code = [byte][char]$key }

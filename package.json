@@ -1,6 +1,6 @@
 {
   "name": "dexor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Dexor desktop macro hub and online macro catalogue",
   "author": "Dexor Project",
   "main": "desktop/main.js",

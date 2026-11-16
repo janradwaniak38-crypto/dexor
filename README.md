@@ -20,7 +20,7 @@ GitHub Pages and Releases are free for public projects within GitHub's usage lim
 
 ## Macro actions
 
-The editor supports `click`, `key`, `wait`, `waitColor`, and `launchGame` steps. `waitColor` watches one sampled point on the primary screen. Use the screenshot preview to sample the point and its current colour. A routine can repeat until stopped. F8 stops a running routine; F6 toggles the auto-clicker.
+The editor supports `click`, `key`, `wait`, `waitColor`, `fischTrack`, and `launchGame` steps. `waitColor` watches one sampled point on the primary screen. Use the screenshot preview to sample the point and its current colour. `fischTrack` calibrates the fishing bar and fish marker from the screenshot, then holds or releases the left mouse button to follow the marker. It controls the fishing minigame only; casting the rod is a separate macro step. A routine can repeat until stopped. F8 stops a running routine; F6 toggles the auto-clicker.
 
 Game profiles are starting templates and need calibration for each game's current UI and display resolution. The included Fisch profiles are not guaranteed to work without setting the in-game positions and colours. Fortnite's launcher profile opens the executable path selected by the user; it does not play a match automatically.
 

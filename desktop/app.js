@@ -55,7 +55,7 @@ function renderHome() {
 
 function renderLibrary() {
   const items = state.installed;
-  content.innerHTML = `<section class="page-intro"><div><div class="eyebrow">LOKALNA BIBLIOTEKA</div><h1>Moje makra</h1><p>Makra zainstalowane na tym urządzeniu. Konfiguracja jest zapisywana lokalnie.</p></div><button class="button button-primary" data-action="navigate" data-view="online">＋ Dodaj z katalogu</button></section>
+  content.innerHTML = `<section class="page-intro"><div><div class="eyebrow">LOKALNA BIBLIOTEKA</div><h1>Moje makra</h1><p>Makra zainstalowane na tym urządzeniu. Konfiguracja jest zapisywana lokalnie.</p></div><div class="intro-actions"><button class="button button-soft" data-action="new-macro">＋ Nowe makro</button><button class="button button-primary" data-action="navigate" data-view="online">＋ Dodaj z katalogu</button></div></section>
     ${items.length ? `<div class="toolbar"><label class="search-box"><span>⌕</span><input id="macro-search" type="search" placeholder="Szukaj w bibliotece..."></label><span class="result-count">${items.length} elementów</span></div><div id="macro-grid" class="macro-grid">${items.map((item) => macroCard(item)).join('')}</div>` : `<div class="empty-panel"><div class="empty-orbit">◇</div><h2>Biblioteka jest pusta</h2><p>Otwórz katalog online, pobierz szablon i skonfiguruj pierwszą sekwencję.</p><button class="button button-primary" data-action="navigate" data-view="online">Przejdź do katalogu <span>→</span></button></div>`}`;
 }
 
@@ -123,6 +123,7 @@ function defaultStep(type = 'wait') {
   if (type === 'click') return { type, x: 900, y: 500, button: 'left' };
   if (type === 'key') return { type, key: 'E' };
   if (type === 'waitColor') return { type, x: 900, y: 500, color: '#FFFFFF', tolerance: 24, timeoutMs: 30000 };
+  if (type === 'fischTrack') return { type, left: -1, right: -1, trackY: -1, rightY: -1, fishY: -1, template: [] };
   if (type === 'launchGame') return { type, game: 'fortnite' };
   return { type: 'wait', ms: 500 };
 }
@@ -133,8 +134,9 @@ function stepRow(step, index) {
   if (step.type === 'key') fields = `<label>Klawisz <input data-step="${index}" data-field="key" maxlength="12" value="${esc(step.key)}"></label>`;
   if (step.type === 'wait') fields = `<label>Czas <input data-step="${index}" data-field="ms" type="number" min="50" value="${step.ms}"></label><span class="field-suffix">ms</span>`;
   if (step.type === 'waitColor') fields = `<label>X <input data-step="${index}" data-field="x" type="number" value="${step.x}"></label><label>Y <input data-step="${index}" data-field="y" type="number" value="${step.y}"></label><label>Kolor <input data-step="${index}" data-field="color" type="color" value="${step.color || '#FFFFFF'}"></label><label>Tolerancja <input data-step="${index}" data-field="tolerance" type="number" min="0" max="100" value="${step.tolerance ?? 24}"></label><button class="mini-button" data-action="capture-color" data-index="${index}">Pobierz z ekranu</button>`;
+  if (step.type === 'fischTrack') fields = `<button class="mini-button" data-action="capture-track-left" data-index="${index}">${step.left >= 0 ? '✓ Lewy brzeg' : 'Wskaż lewy brzeg'}</button><button class="mini-button" data-action="capture-track-right" data-index="${index}">${step.right > step.left ? '✓ Prawy brzeg' : 'Wskaż prawy brzeg'}</button><button class="mini-button" data-action="capture-fish" data-index="${index}">${step.template?.length === 75 ? '✓ Znacznik ryby' : 'Wskaż rybę'}</button>`;
   if (step.type === 'launchGame') fields = `<label>Gra <select data-step="${index}" data-field="game"><option value="fortnite" ${step.game === 'fortnite' ? 'selected' : ''}>Fortnite</option><option value="roblox" ${step.game === 'roblox' ? 'selected' : ''}>Roblox</option></select></label>`;
-  const labels = { click: 'Kliknięcie', key: 'Naciśnij klawisz', wait: 'Czekaj', waitColor: 'Czekaj na kolor', launchGame: 'Uruchom grę' };
+  const labels = { click: 'Kliknięcie', key: 'Naciśnij klawisz', wait: 'Czekaj', waitColor: 'Czekaj na kolor', fischTrack: 'Śledź rybę', launchGame: 'Uruchom grę' };
   return `<div class="step-row"><span class="step-index">${String(index + 1).padStart(2, '0')}</span><select class="step-type" data-step-type="${index}">${Object.entries(labels).map(([value, label]) => `<option value="${value}" ${step.type === value ? 'selected' : ''}>${label}</option>`).join('')}</select><div class="step-fields">${fields}</div><button class="step-remove" data-action="remove-step" data-index="${index}" title="Usuń krok">×</button></div>`;
 }
 
@@ -142,7 +144,7 @@ function openEditor(macro) {
   editor = structuredClone(macro || { id: `macro-${Date.now()}`, name: '', game: 'Fisch', version: '1.0.0', description: '', repeat: false, steps: [] });
   if (!Array.isArray(editor.steps)) editor.steps = [];
   if (editor.steps.length === 0) editor.steps.push(defaultStep());
-  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="editor-modal"><div class="modal-header"><div><span class="eyebrow">EDYTOR SEKWENCJI</span><h2>${esc(editor.name || 'Nowe makro')}</h2></div><button class="modal-close" data-action="close-modal">×</button></div><div class="editor-body"><div class="editor-main"><div class="editor-fields"><label>Nazwa makra<input id="edit-name" maxlength="90" value="${esc(editor.name)}" placeholder="Np. Fisch · Połów ryb"></label><label>Gra<input id="edit-game" maxlength="60" value="${esc(editor.game)}" placeholder="Nazwa gry"></label><label class="wide-field">Opis<input id="edit-description" maxlength="500" value="${esc(editor.description)}" placeholder="Co ma robić to makro?"></label><label class="repeat-toggle"><input id="edit-repeat" type="checkbox" ${editor.repeat ? 'checked' : ''}><span>Powtarzaj sekwencję do zatrzymania (F8)</span></label></div><div class="steps-heading"><div><span class="eyebrow">SEKWENCJA</span><h3>Kroki makra</h3></div><button class="button button-soft small-button" data-action="add-step">＋ Dodaj krok</button></div><div id="steps-list" class="steps-list">${editor.steps.map(stepRow).join('')}</div><div class="editor-note"><b>ⓘ</b><span>Wybierz „Czekaj na kolor”, a potem użyj „Pobierz z ekranu”, aby wskazać punkt na aktywnej grze.</span></div></div><aside class="capture-panel"><div class="capture-heading"><span class="eyebrow">PODGLĄD EKRANU</span><button class="mini-button" data-action="capture-screen">Zrób zrzut</button></div><div class="screen-preview" id="screen-preview"><div class="screen-placeholder"><span>▣</span><p>Zrzut ekranu pojawi się tutaj</p></div></div><small>Kliknij podgląd, aby wskazać pozycję i odczytać kolor.</small></aside></div><div class="modal-footer"><button class="button button-ghost" data-action="close-modal">Anuluj</button><button class="button button-primary" data-action="save-macro">Zapisz makro <span>→</span></button></div></section></div>`;
+  modalRoot.innerHTML = `<div class="modal-backdrop"><section class="editor-modal"><div class="modal-header"><div><span class="eyebrow">EDYTOR SEKWENCJI</span><h2>${esc(editor.name || 'Nowe makro')}</h2></div><button class="modal-close" data-action="close-modal">×</button></div><div class="editor-body"><div class="editor-main"><div class="editor-fields"><label>Nazwa makra<input id="edit-name" maxlength="90" value="${esc(editor.name)}" placeholder="Np. Fisch · Połów ryb"></label><label>Gra<input id="edit-game" maxlength="60" value="${esc(editor.game)}" placeholder="Nazwa gry"></label><label class="wide-field">Opis<input id="edit-description" maxlength="500" value="${esc(editor.description)}" placeholder="Co ma robić to makro?"></label><label class="repeat-toggle"><input id="edit-repeat" type="checkbox" ${editor.repeat ? 'checked' : ''}><span>Powtarzaj sekwencję do zatrzymania (F8)</span></label></div><div class="steps-heading"><div><span class="eyebrow">SEKWENCJA</span><h3>Kroki makra</h3></div><button class="button button-soft small-button" data-action="add-step">＋ Dodaj krok</button></div><div id="steps-list" class="steps-list">${editor.steps.map(stepRow).join('')}</div><div class="editor-note"><b>ⓘ</b><span>„Śledź rybę”: wskaż lewy i prawy brzeg toru na tej samej wysokości, potem znacznik ryby. Krok steruje tylko minigrą połowu.</span></div></div><aside class="capture-panel"><div class="capture-heading"><span class="eyebrow">PODGLĄD EKRANU</span><button class="mini-button" data-action="capture-screen">Zrób zrzut</button></div><div class="screen-preview" id="screen-preview"><div class="screen-placeholder"><span>▣</span><p>Zrzut ekranu pojawi się tutaj</p></div></div><small>Kliknij podgląd, aby wskazać pozycję lub punkt kalibracji.</small></aside></div><div class="modal-footer"><button class="button button-ghost" data-action="close-modal">Anuluj</button><button class="button button-primary" data-action="save-macro">Zapisz makro <span>→</span></button></div></section></div>`;
   modalRoot.querySelector('#edit-name').addEventListener('input', (event) => { editor.name = event.target.value; modalRoot.querySelector('.modal-header h2').textContent = editor.name || 'Nowe makro'; });
   modalRoot.querySelector('#edit-game').addEventListener('input', (event) => { editor.game = event.target.value; });
   modalRoot.querySelector('#edit-description').addEventListener('input', (event) => { editor.description = event.target.value; });
@@ -151,6 +153,7 @@ function openEditor(macro) {
   modalRoot.onchange = (event) => {
     const typeIndex = Number(event.target.dataset.stepType);
     if (Number.isInteger(typeIndex) && editor?.steps[typeIndex]) {
+      editor.captureMode = null;
       editor.steps[typeIndex] = defaultStep(event.target.value);
       editor.selectedIndex = typeIndex;
       modalRoot.querySelector('#steps-list').innerHTML = editor.steps.map(stepRow).join('');
@@ -192,6 +195,39 @@ function sampleFromPreview(event) {
   const rgba = ctx.getImageData(x, y, 1, 1).data;
   const color = `#${[rgba[0], rgba[1], rgba[2]].map((item) => item.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
   const selected = Number(editor.selectedIndex || 0);
+  if (editor.captureMode && editor.steps[selected]?.type === 'fischTrack') {
+    const step = editor.steps[selected];
+    if (editor.captureMode === 'track-left') {
+      step.left = x;
+      step.trackY = y;
+      showToast(`Zapisano lewy brzeg toru · ${x}, ${y}`, 'success');
+    } else if (editor.captureMode === 'track-right') {
+      if (step.left < 0) { showToast('Najpierw wskaż lewy brzeg toru.', 'error'); return; }
+      if (x <= step.left) { showToast('Prawy brzeg musi być na prawo od lewego.', 'error'); return; }
+      if (Math.abs(y - step.trackY) > 18) { showToast('Kliknij prawy brzeg na tej samej wysokości co lewy.', 'error'); return; }
+      step.right = x;
+      step.rightY = y;
+      step.trackY = Math.round((step.trackY + y) / 2);
+      showToast(`Zapisano prawy brzeg toru · ${x}, ${y}`, 'success');
+    } else if (editor.captureMode === 'fish') {
+      if (x < 4 || x > canvas.width - 5 || y < 4 || y > canvas.height - 5) { showToast('Wskaż rybę nie bliżej niż 5 pikseli od krawędzi obrazu.', 'error'); return; }
+      if (step.left < 0 || step.right <= step.left) { showToast('Najpierw wskaż oba brzegi toru.', 'error'); return; }
+      if (x < step.left + 5 || x > step.right - 5 || Math.abs(y - step.trackY) > 18) { showToast('Kliknij znacznik ryby na torze, mniej więcej na jego środku.', 'error'); return; }
+      const pixels = [];
+      for (const dy of [-4, -2, 0, 2, 4]) {
+        for (const dx of [-4, -2, 0, 2, 4]) {
+          const sample = ctx.getImageData(x + dx, y + dy, 1, 1).data;
+          pixels.push(sample[0], sample[1], sample[2]);
+        }
+      }
+      step.fishY = y;
+      step.template = pixels;
+      showToast(`Zapisano próbkę znacznika ryby · ${x}, ${y}`, 'success');
+    }
+    editor.captureMode = null;
+    modalRoot.querySelector('#steps-list').innerHTML = editor.steps.map(stepRow).join('');
+    return;
+  }
   if (!editor.steps[selected]) editor.steps[selected] = defaultStep('waitColor');
   if (editor.steps[selected].type !== 'waitColor') editor.steps[selected] = defaultStep('waitColor');
   Object.assign(editor.steps[selected], { x, y, color });
@@ -208,6 +244,7 @@ async function handleAction(action, id, element) {
     if (action === 'refresh') { await refreshCatalog(); return; }
     if (action === 'install') { state.installed = await window.dexor.installMacro(id); await refreshState(); activeView = 'library'; render(); showToast('Makro zainstalowane. Otwórz je, aby ustawić parametry.', 'success'); return; }
     if (action === 'edit') { const macro = state.installed.find((item) => item.id === id); if (macro) openEditor(macro); return; }
+    if (action === 'new-macro') { openEditor(); return; }
     if (action === 'run') {
       if (state.activeMacroId === id) await window.dexor.stopMacro();
       else { await window.dexor.runMacro(id); showToast('Makro uruchomione · F8 zatrzymuje odtwarzanie.', 'success'); }
@@ -219,6 +256,14 @@ async function handleAction(action, id, element) {
     if (action === 'remove-step') { editor.steps.splice(Number(element.dataset.index), 1); if (!editor.steps.length) editor.steps.push(defaultStep()); modalRoot.querySelector('#steps-list').innerHTML = editor.steps.map(stepRow).join(''); return; }
     if (action === 'capture-screen') { await takeScreenShot(); return; }
     if (action === 'capture-color') { editor.selectedIndex = Number(element.dataset.index); await takeScreenShot(); showToast('Kliknij na zrzucie ekranu, aby pobrać punkt i kolor.', 'info'); return; }
+    if (['capture-track-left', 'capture-track-right', 'capture-fish'].includes(action)) {
+      editor.selectedIndex = Number(element.dataset.index);
+      editor.captureMode = action === 'capture-track-left' ? 'track-left' : action === 'capture-track-right' ? 'track-right' : 'fish';
+      await takeScreenShot();
+      const instruction = editor.captureMode === 'track-left' ? 'Kliknij lewy brzeg toru na jego środku.' : editor.captureMode === 'track-right' ? 'Kliknij prawy brzeg na tej samej wysokości.' : 'Kliknij pionowy znacznik ryby tam, gdzie przecina środek toru.';
+      showToast(instruction, 'info');
+      return;
+    }
     if (action === 'save-macro') {
       editor.name = modalRoot.querySelector('#edit-name').value.trim() || 'Moje makro';
       editor.game = modalRoot.querySelector('#edit-game').value.trim() || 'Inne';
