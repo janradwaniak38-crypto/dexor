@@ -151,8 +151,8 @@ function nativeAction(args) {
   });
 }
 
-async function capturePrimary() {
-  const restoreWindow = Boolean(mainWindow && mainWindow.isVisible());
+async function capturePrimary({ hideWindow = false } = {}) {
+  const restoreWindow = hideWindow && Boolean(mainWindow && mainWindow.isVisible());
   if (restoreWindow) {
     mainWindow.hide();
     await sleep(350);
@@ -601,7 +601,7 @@ function registerIpc() {
   ipcMain.handle('macro:run', (_event, rawId) => { runMacro(cleanId(rawId)).catch((error) => sendStatus(error.message, 'error')); return { ok: true }; });
   ipcMain.handle('macro:stop', () => { stopRun(); return true; });
   ipcMain.handle('screen:capture', async () => {
-    const capture = await capturePrimary();
+    const capture = await capturePrimary({ hideWindow: true });
     return { dataUrl: capture.dataUrl, width: capture.width, height: capture.height };
   });
   ipcMain.handle('game:open', (_event, game) => openGame(String(game).toLowerCase()));
