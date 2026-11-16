@@ -1,15 +1,15 @@
 {
   "name": "dexor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Dexor desktop macro hub and online macro catalogue",
   "author": "Dexor Project",
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "package:win": "electron-builder --win nsis",
-    "package:portable": "electron-builder --win dir",
-    "package:portable:zip": "electron-builder --win dir && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/zip-portable.ps1 -Source release/win-unpacked -Destination release/Dexor-Portable.zip",
+    "package:win": "electron-builder --win nsis --publish never",
+    "package:portable": "electron-builder --win dir --publish never",
+    "package:portable:zip": "electron-builder --win dir --publish never && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/zip-portable.ps1 -Source release/win-unpacked -Destination release/Dexor-Portable.zip",
     "publish:win": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
