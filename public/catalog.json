@@ -6,16 +6,14 @@
       "id": "fisch-fishing-starter",
       "name": "Fisch · Połów ryb",
       "game": "Fisch",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "category": "Roblox",
-      "description": "Szablon cyklu połowu. Ustaw pozycję i kolor elementu gry w edytorze przed uruchomieniem.",
-      "tags": ["Fisch", "połów", "szablon"],
+      "description": "Automatycznie wykrywa minigrę Fisch i śledzi rybę na ekranie.",
+      "tags": ["Fisch", "połów", "automatyczne śledzenie"],
       "repeat": true,
-      "needsCalibration": true,
+      "needsCalibration": false,
       "steps": [
-        { "type": "waitColor", "x": 900, "y": 500, "color": "#FFFFFF", "tolerance": 28, "timeoutMs": 30000 },
-        { "type": "click", "x": 900, "y": 500, "button": "left" },
-        { "type": "wait", "ms": 700 }
+        { "type": "fischTrack", "auto": true }
       ]
     },
     {

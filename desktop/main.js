@@ -28,6 +28,28 @@ function saveJson(name, value) {
   fs.mkdirSync(app.getPath('userData'), { recursive: true });
   fs.writeFileSync(dataFile(name), JSON.stringify(value, null, 2), 'utf8');
 }
+function migrateInstalledMacros(macros) {
+  let changed = false;
+  const migrated = macros.map((macro) => {
+    const isOldFischTemplate = macro.id === 'fisch-fishing-starter'
+      && macro.version === '0.1.0'
+      && Array.isArray(macro.steps)
+      && macro.steps.some((step) => step.type === 'waitColor')
+      && macro.steps.some((step) => step.type === 'click')
+      && !macro.steps.some((step) => step.type === 'fischTrack');
+    if (!isOldFischTemplate) return macro;
+    changed = true;
+    return {
+      ...macro,
+      version: '0.1.3',
+      description: 'Automatyczne wykrywanie minigry i śledzenie ryby.',
+      needsCalibration: false,
+      steps: [{ type: 'fischTrack', auto: true }]
+    };
+  });
+  if (changed) saveJson('macros.json', migrated);
+  return migrated;
+}
 function sendStatus(message, kind = 'info') {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('status', { message, kind });
 }
@@ -79,7 +101,7 @@ function validateMacro(input) {
         ? step.template.slice(0, 75).map((value) => clampNumber(value, 0, 255, 0))
         : [];
       return {
-        type: 'fischTrack',
+        type: 'fischTrack', auto: step.auto !== false,
         left: clampNumber(step.left, -1, 12000, -1), right: clampNumber(step.right, -1, 12000, -1),
         trackY: clampNumber(step.trackY, -1, 12000, -1), fishY: clampNumber(step.fishY, -1, 12000, -1),
         template
@@ -92,6 +114,7 @@ function validateMacro(input) {
     }
     throw new Error(`Nieobsługiwany typ kroku: ${String(step.type)}`);
   });
+  if (!macro.steps.some((step) => step.type === 'waitColor')) macro.needsCalibration = false;
   return macro;
 }
 
@@ -110,12 +133,20 @@ function getNativeScript() {
 }
 function nativeAction(args) {
   return new Promise((resolve, reject) => {
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', getNativeScript(), ...args.map(String)], { windowsHide: true });
+    const scriptPath = getNativeScript();
+    if (!fs.existsSync(scriptPath)) {
+      reject(new Error('Brakuje składnika sterowania Dexora (native.ps1). Rozpakuj cały ZIP aplikacji albo zainstaluj ją ponownie.'));
+      return;
+    }
+    const systemRoot = process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows';
+    const systemPowerShell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const executable = fs.existsSync(systemPowerShell) ? systemPowerShell : 'powershell.exe';
+    const child = spawn(executable, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args.map(String)], { windowsHide: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-    child.on('error', reject);
+    child.on('error', (error) => reject(new Error(`Nie udało się uruchomić sterowania Windows: ${error.message}`)));
     child.on('close', (code) => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr.trim() || `Natywna akcja zakończyła się kodem ${code}.`)));
   });
 }
@@ -243,7 +274,142 @@ function locateBar(image, step) {
   return { left: bestStart, right: bestEnd, center: (bestStart + bestEnd) / 2 };
 }
 
-async function trackFisch(step, run) {
+function longestBrightRun(image, y, xStart, xEnd) {
+  let start = -1;
+  let best = null;
+  for (let x = xStart; x <= xEnd; x += 2) {
+    const [r, g, b] = sampleRgb(image, x, y);
+    const bright = r + g + b > 390 && Math.min(r, g, b) > 65;
+    if (bright && start < 0) start = x;
+    if ((!bright || x >= xEnd - 1) && start >= 0) {
+      const end = bright && x >= xEnd - 1 ? x : x - 2;
+      const width = end - start + 2;
+      if (!best || width > best.width) best = { left: start, right: end, width, center: (start + end) / 2 };
+      start = -1;
+    }
+  }
+  return best;
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] || 0;
+}
+
+function findMarkerInLane(image, laneLeft, laneRight, top, bottom) {
+  let bestX = -1;
+  let bestScore = 0;
+  const yStart = Math.max(0, top - 20);
+  const yEnd = Math.min(image.height - 1, bottom + 28);
+  for (let x = Math.max(2, laneLeft); x <= Math.min(image.width - 3, laneRight); x += 2) {
+    let streak = 0;
+    let longest = 0;
+    for (let y = yStart; y <= yEnd; y += 1) {
+      const [r, g, b] = sampleRgb(image, x, y);
+      const saturated = Math.max(r, g, b) - Math.min(r, g, b) > 95 && r + g + b > 360;
+      if (saturated) {
+        streak += 1;
+        longest = Math.max(longest, streak);
+      } else streak = 0;
+    }
+    if (longest > bestScore) { bestScore = longest; bestX = x; }
+  }
+  return bestScore >= Math.max(24, (bottom - top + 1) * 0.9) ? { x: bestX, score: bestScore } : null;
+}
+
+function findAutoFishingState(image) {
+  const xStart = Math.round(image.width * 0.04);
+  const xEnd = Math.round(image.width * 0.96);
+  const yStart = Math.round(image.height * 0.15);
+  const yEnd = Math.round(image.height * 0.9);
+  const minBarWidth = Math.max(32, image.width * 0.12);
+  const maxBarWidth = image.width * 0.62;
+  const rows = [];
+  for (let y = yStart; y <= yEnd; y += 2) {
+    const run = longestBrightRun(image, y, xStart, xEnd);
+    if (run && run.width >= minBarWidth && run.width <= maxBarWidth) rows.push({ y, ...run });
+  }
+
+  const groups = [];
+  for (const row of rows) {
+    let group = groups.find((item) => row.y - item.lastY <= 4 && Math.abs(row.center - item.center) < Math.max(18, row.width * 0.12));
+    if (!group) {
+      group = { rows: [], lastY: row.y, center: row.center };
+      groups.push(group);
+    }
+    group.rows.push(row);
+    group.lastY = row.y;
+    group.center = median(group.rows.map((item) => item.center));
+  }
+
+  let best = null;
+  for (const group of groups) {
+    const top = group.rows[0].y;
+    const bottom = group.rows[group.rows.length - 1].y;
+    if (bottom - top < 12) continue;
+    const left = median(group.rows.map((row) => row.left));
+    const right = median(group.rows.map((row) => row.right));
+    const width = median(group.rows.map((row) => row.width));
+    const inferredLaneWidth = Math.min(image.width * 0.96, Math.max(width * 1.35, width / 0.43));
+    const laneLeft = Math.max(0, (image.width - inferredLaneWidth) / 2);
+    const laneRight = Math.min(image.width - 1, laneLeft + inferredLaneWidth);
+    const fish = findMarkerInLane(image, laneLeft, laneRight, top, bottom);
+    if (!fish) continue;
+    const score = fish.score * width;
+    if (!best || score > best.score) {
+      best = {
+        score, fish,
+        bar: { left, right, center: (left + right) / 2 },
+        laneLeft, laneRight, trackY: Math.round((top + bottom) / 2)
+      };
+    }
+  }
+  return best;
+}
+
+async function trackFischAuto(run) {
+  let lastFish = null;
+  let lastFishAt = 0;
+  let lastMarkerAt = 0;
+  let velocity = 0;
+  let detectedAtLeastOnce = false;
+  sendStatus('Fisch · automatycznie szukam minigry na ekranie.', 'info');
+  while (!run.cancelled) {
+    const capture = await capturePrimary();
+    const image = PNG.sync.read(capture.png);
+    const found = findAutoFishingState(image);
+    const now = Date.now();
+    if (found) {
+      const fish = found.fish;
+      if (lastFish) {
+        const elapsed = Math.max(0.05, (now - lastFishAt) / 1000);
+        const instantVelocity = Math.max(-420, Math.min(420, (fish.x - lastFish.x) / elapsed));
+        velocity = velocity * 0.55 + instantVelocity * 0.45;
+      }
+      lastFish = fish;
+      lastFishAt = now;
+      lastMarkerAt = now;
+      detectedAtLeastOnce = true;
+      const predictedFish = fish.x + velocity * 0.12;
+      const error = predictedFish - found.bar.center;
+      const point = { x: found.bar.center, y: found.trackY, capture };
+      if (error > (run.mouseHeld ? 8 : 14)) await setRunMouse(run, true, point);
+      else if (error < (run.mouseHeld ? -8 : -14)) await setRunMouse(run, false, point);
+      if (now - (run.lastFishStatusAt || 0) > 3000) {
+        run.lastFishStatusAt = now;
+        sendStatus('Fisch · ryba wykryta, śledzę ją automatycznie.', 'success');
+      }
+    } else if (run.mouseHeld && now - lastMarkerAt > 350) {
+      await setRunMouse(run, false);
+    } else if (detectedAtLeastOnce && now - lastFishAt > 3000) {
+      return;
+    }
+    await sleep(120);
+  }
+  await setRunMouse(run, false);
+}
+
+async function trackFischCalibrated(step, run) {
   if (step.left < 0 || step.right <= step.left || step.trackY < 0 || step.fishY < 0 || step.template.length !== 75) {
     throw new Error('Skonfiguruj krok „Śledź rybę”: wskaż oba końce toru i znacznik ryby.');
   }
@@ -282,6 +448,11 @@ async function trackFisch(step, run) {
     await sleep(100);
   }
   await setRunMouse(run, false);
+}
+
+async function trackFisch(step, run) {
+  if (step.auto !== false) return trackFischAuto(run);
+  return trackFischCalibrated(step, run);
 }
 
 async function executeStep(step, run) {
@@ -459,7 +630,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   settings = { catalogUrl: DEFAULT_CATALOG, fortnitePath: '', clickerInterval: 500, clickerButton: 'left', ...loadJson('settings.json', {}) };
-  installed = loadJson('macros.json', []);
+  installed = migrateInstalledMacros(loadJson('macros.json', []));
   registerIpc();
   makeWindow();
   globalShortcut.register('F8', () => stopRun('F8 · zatrzymano makro.'));
