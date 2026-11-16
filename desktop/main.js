@@ -141,7 +141,11 @@ function nativeAction(args) {
     const systemRoot = process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows';
     const systemPowerShell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
     const executable = fs.existsSync(systemPowerShell) ? systemPowerShell : 'powershell.exe';
-    const child = spawn(executable, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args.map(String)], { windowsHide: true });
+    const [action, x = -1, y = -1, value = ''] = args;
+    const child = spawn(executable, [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath,
+      '-Action', String(action), '-X', String(x), '-Y', String(y), '-Value', String(value)
+    ], { windowsHide: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
@@ -465,7 +469,7 @@ async function executeStep(step, run) {
     const y = Math.round(step.y / snapshot.height * display.size.height * display.scaleFactor);
     return nativeAction(['Click', x, y, step.button]);
   }
-  if (step.type === 'key') return nativeAction(['Key', step.key]);
+  if (step.type === 'key') return nativeAction(['Key', -1, -1, step.key]);
   if (step.type === 'launchGame') return openGame(step.game);
   if (step.type === 'fischTrack') return trackFisch(step, run);
   if (step.type === 'waitColor') {
