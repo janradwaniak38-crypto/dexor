@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b10">
+  <title>Dexor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark">D</div>
+        <div class="brand-name">dexor<span>.</span><small>MACRO HUB</small></div>
+      </div>
+      <div class="side-label">PRZESTRZEŃ</div>
+      <nav class="main-nav">
+        <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span> Przegląd</button>
+        <button class="nav-item" data-view="library"><span class="nav-icon">▦</span> Moje makra <span id="macro-count" class="nav-count">0</span></button>
+        <button class="nav-item" data-view="online"><span class="nav-icon">⌘</span> Katalog online <span class="nav-dot"></span></button>
+        <button class="nav-item" data-view="clicker"><span class="nav-icon">⊙</span> Auto klikacz</button>
+      </nav>
+      <div class="side-label tools-label">NARZĘDZIA</div>
+      <nav class="main-nav">
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span> Ustawienia</button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="side-status">
+        <div class="status-orb"></div>
+        <div><strong id="connection-label">Katalog online</strong><small id="connection-state">Sprawdzanie połączenia…</small></div>
+        <button id="refresh-catalog" class="icon-button" title="Odśwież katalog">↻</button>
+      </div>
+      <div class="profile-row"><div class="profile-avatar">DX</div><div><strong>Użytkownik</strong><small>Profil lokalny</small></div><span class="profile-menu">•••</span></div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Dexor</span><b>/</b><strong id="current-page">Przegląd</strong></div>
+        <div class="topbar-actions">
+          <div class="status-pill"><i></i><span>Silnik lokalny gotowy</span></div>
+          <button class="top-icon" id="top-stop" title="Zatrzymaj makro (F8)">■</button>
+          <button class="top-avatar">DX</button>
+        </div>
+      </header>
+      <div id="toast" class="toast" aria-live="polite"></div>
+      <div id="content" class="content-area"></div>
+      <footer class="app-footer"><span>DEXOR DESKTOP · 0.1.0</span><span>F8 zatrzymuje makro <i>•</i> F6 przełącza klikacz <i>•</i> tylko Windows</span></footer>
+    </main>
+  </div>
+  <div id="modal-root"></div>
+  <script src="app.js"></script>
+</body>
+</html>

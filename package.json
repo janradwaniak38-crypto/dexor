@@ -1,0 +1,55 @@
+{
+  "name": "dexor",
+  "version": "0.1.0",
+  "description": "Dexor desktop macro hub and online macro catalogue",
+  "author": "Dexor Project",
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package:win": "electron-builder --win nsis",
+    "package:portable": "electron-builder --win dir",
+    "package:portable:zip": "electron-builder --win dir && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/zip-portable.ps1 -Source release/win-unpacked -Destination release/Dexor-Portable.zip",
+    "publish:win": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
+  },
+  "build": {
+    "appId": "app.dexor.desktop",
+    "productName": "Dexor",
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "desktop/native.ps1",
+        "to": "native.ps1"
+      }
+    ],
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "desktop/icon.ico",
+      "artifactName": "Dexor-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "allowScripts": {
+    "electron@45.3.3": true
+  }
+}

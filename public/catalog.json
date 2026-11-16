@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-16",
+  "packages": [
+    {
+      "id": "fisch-fishing-starter",
+      "name": "Fisch · Połów ryb",
+      "game": "Fisch",
+      "version": "0.1.0",
+      "category": "Roblox",
+      "description": "Szablon cyklu połowu. Ustaw pozycję i kolor elementu gry w edytorze przed uruchomieniem.",
+      "tags": ["Fisch", "połów", "szablon"],
+      "repeat": true,
+      "needsCalibration": true,
+      "steps": [
+        { "type": "waitColor", "x": 900, "y": 500, "color": "#FFFFFF", "tolerance": 28, "timeoutMs": 30000 },
+        { "type": "click", "x": 900, "y": 500, "button": "left" },
+        { "type": "wait", "ms": 700 }
+      ]
+    },
+    {
+      "id": "fisch-totem-starter",
+      "name": "Fisch · Totem",
+      "game": "Fisch",
+      "version": "0.1.0",
+      "category": "Roblox",
+      "description": "Szablon przypomnienia i uruchomienia akcji totemu. Wybierz klawisz lub punkt kliknięcia w edytorze.",
+      "tags": ["Fisch", "totem", "szablon"],
+      "repeat": false,
+      "needsCalibration": true,
+      "steps": [
+        { "type": "waitColor", "x": 900, "y": 500, "color": "#FFFFFF", "tolerance": 28, "timeoutMs": 30000 },
+        { "type": "key", "key": "E" },
+        { "type": "wait", "ms": 300 }
+      ]
+    },
+    {
+      "id": "clicker-starter",
+      "name": "Klikacz",
+      "game": "Narzędzie",
+      "version": "0.1.0",
+      "category": "Narzędzia",
+      "description": "Klikacz systemowy z wyborem interwału i skrótem F6.",
+      "tags": ["klikacz", "interwał", "F6"],
+      "repeat": false,
+      "steps": []
+    },
+    {
+      "id": "fortnite-launcher",
+      "name": "Fortnite · Uruchom grę",
+      "game": "Fortnite",
+      "version": "0.1.0",
+      "category": "Launcher",
+      "description": "Otwiera Fortnite z pliku wybranego w ustawieniach. Nie automatyzuje rozgrywki.",
+      "tags": ["Fortnite", "launcher"],
+      "repeat": false,
+      "steps": [{ "type": "launchGame", "game": "fortnite" }]
+    }
+  ]
+}
